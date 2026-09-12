@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud, Loader2, CheckCircle2, XCircle, Lock } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { mapParsedToRow } from "@/lib/mapPayslip";
+import { usePayslips } from "@/context/PayslipsContext";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -14,12 +15,14 @@ function fileToBase64(file) {
   });
 }
 
-export default function UploadCard({ client, connected, onUploaded }) {
-  const inputRef = useRef(null);
+export default function UploadCard({ client, connected }) {
+  const { addPayslip } = usePayslips();
+  const pdfInputRef = useRef(null);
+  const photoInputRef = useRef(null);
   const [status, setStatus] = useState("idle"); // idle | loading | success | error
   const [message, setMessage] = useState("");
 
-  async function handleFile(e) {
+  async function handleFile(e, inputRef) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -63,7 +66,11 @@ export default function UploadCard({ client, connected, onUploaded }) {
 
       // 3. Insert della riga con i dati estratti
       setMessage("Sincronizzazione dei dati…");
-      const row = mapParsedToRow(data.parsed, { filePath: storagePath, fileName: file.name });
+      const row = mapParsedToRow(data.parsed, {
+        filePath: storagePath,
+        fileName: file.name,
+        fileType: mediaType,
+      });
 
       const { data: inserted, error: insertError } = await client
         .from("payslips")
@@ -77,7 +84,7 @@ export default function UploadCard({ client, connected, onUploaded }) {
 
       setStatus("success");
       setMessage("Busta paga caricata, analizzata e sincronizzata.");
-      onUploaded?.(inserted);
+      addPayslip(inserted);
     } catch (err) {
       setStatus("error");
       setMessage(err.message || "Errore imprevisto.");
@@ -112,40 +119,66 @@ export default function UploadCard({ client, connected, onUploaded }) {
     );
   }
 
+  // Durante caricamento/esito, mostriamo un unico riquadro di stato al posto
+  // dei due pulsanti, per non lasciar toccare altri file nel frattempo.
+  if (status !== "idle") {
+    return (
+      <div className="rounded-2xl border border-base-700 bg-base-900 p-4">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-base-600 py-8 px-4 text-center">
+          {status === "loading" && <Loader2 className="h-8 w-8 animate-spin text-accent" />}
+          {status === "success" && <CheckCircle2 className="h-8 w-8 text-good" />}
+          {status === "error" && <XCircle className="h-8 w-8 text-bad" />}
+          <span className="font-medium">
+            {status === "loading" && "Analisi in corso…"}
+            {status === "success" && "Fatto!"}
+            {status === "error" && "Errore"}
+          </span>
+          <span className="text-sm text-slate-400">{message}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-base-700 bg-base-900 p-4">
       <input
-        ref={inputRef}
+        ref={pdfInputRef}
         type="file"
-        accept="application/pdf,image/*"
-        onChange={handleFile}
+        accept="application/pdf"
+        onChange={(e) => handleFile(e, pdfInputRef)}
         className="hidden"
-        id="payslip-upload"
+        id="payslip-upload-pdf"
       />
-      <label
-        htmlFor="payslip-upload"
-        className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-base-600 py-8 px-4 text-center active:scale-[0.99] transition cursor-pointer"
-      >
-        {status === "loading" ? (
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
-        ) : status === "success" ? (
-          <CheckCircle2 className="h-8 w-8 text-good" />
-        ) : status === "error" ? (
-          <XCircle className="h-8 w-8 text-bad" />
-        ) : (
-          <UploadCloud className="h-8 w-8 text-accent" />
-        )}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleFile(e, photoInputRef)}
+        className="hidden"
+        id="payslip-upload-photo"
+      />
 
-        <span className="font-medium">
-          {status === "idle" && "Carica busta paga"}
-          {status === "loading" && "Analisi in corso…"}
-          {status === "success" && "Fatto!"}
-          {status === "error" && "Errore"}
-        </span>
-        <span className="text-sm text-slate-400">
-          {message || "PDF o foto dal rullino · tocca per selezionare"}
-        </span>
-      </label>
+      <p className="text-sm font-medium text-slate-300 mb-3 text-center">Carica busta paga</p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label
+          htmlFor="payslip-upload-pdf"
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-base-600 py-6 px-3 text-center active:scale-[0.99] transition cursor-pointer"
+        >
+          <FileText className="h-7 w-7 text-accent" />
+          <span className="font-medium text-sm">File PDF</span>
+          <span className="text-xs text-slate-400">Scelto dai tuoi file</span>
+        </label>
+
+        <label
+          htmlFor="payslip-upload-photo"
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-base-600 py-6 px-3 text-center active:scale-[0.99] transition cursor-pointer"
+        >
+          <ImageIcon className="h-7 w-7 text-accent" />
+          <span className="font-medium text-sm">Foto</span>
+          <span className="text-xs text-slate-400">Scatta o dalla galleria</span>
+        </label>
+      </div>
     </div>
   );
 }

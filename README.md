@@ -51,7 +51,7 @@ Ti serviranno per collegare l'app dalla schermata Impostazioni (vedi punto 5).
 2. Clicca **"Create API key"** e copiala: ti servirà come variabile d'ambiente
    sul server (Netlify), perché questa deve restare sempre segreta e non va
    mai inserita nell'app dal browser.
-3. L'app usa il modello `gemini-2.5-flash`, che rientra nella **fascia
+3. L'app usa il modello `gemini-3.6-flash`, che rientra nella **fascia
    gratuita** di Google per un uso personale come questo (poche buste paga
    al mese).
 
@@ -148,7 +148,7 @@ sulla schermata Home userà un placeholder del browser.
 
 1. Selezioni un PDF o una foto della busta paga dal telefono (o computer).
 2. Il file viene convertito in Base64 e inviato a `/api/parse-payslip`
-   (server), che chiama Google Gemini (`gemini-2.5-flash`) con un system
+   (server), che chiama Google Gemini (`gemini-3.6-flash`) con un system
    prompt specializzato per buste paga CCNL Metalmeccanica Industria e
    restituisce il JSON estratto (dati contrattuali, retribuzione, fisco,
    ratei ferie/ROL/banca ore, progressivi/TFR).
@@ -161,34 +161,79 @@ sulla schermata Home userà un placeholder del browser.
 
 ```
 app/
-  api/parse-payslip/route.js   # SOLO estrazione AI (Claude), nessun accesso a Supabase
-  page.jsx                     # dashboard principale, responsive mobile/desktop
+  api/parse-payslip/route.js   # SOLO estrazione AI (Gemini), nessun accesso a Supabase
+  page.jsx                     # Dashboard principale
+  ferie-rol/page.jsx           # Saldi Ferie/ROL + grafici
+  ral/page.jsx                 # RAL reale, RAL ipotetica, paga oraria
+  buoni-pasto/page.jsx         # Buoni pasto: totale, media, dettaglio mensile
+  documenti/page.jsx           # Elenco file originali caricati
   settings/page.jsx            # collegamento Supabase, aspetto, installazione PWA
   layout.jsx, globals.css
 components/
   Providers.jsx                 # wrapper client-side per i context
+  AppHeader.jsx                  # header riutilizzabile (titolo, sync, refresh, impostazioni)
+  BottomNav.jsx                   # barra di navigazione in basso
+  StatCard.jsx                    # casella KPI riutilizzabile
+  InfoSection.jsx                  # blocchi Section/Row per i dettagli
   UploadCard.jsx                 # upload file + salvataggio diretto su Supabase
-  KpiCards.jsx                   # schede sintesi (griglia responsive)
-  HistoryCharts.jsx              # grafici Recharts (griglia responsive)
   HistoryTable.jsx               # elenco storico
   DetailModal.jsx                 # dettaglio busta paga
   ConnectionBadge.jsx             # badge stato sync nell'header
   InstallAppButton.jsx            # pulsante installazione PWA
+  charts/
+    NettoLordoChart.jsx            # grafico Netto vs Lordo (Dashboard)
+    RateiBarChart.jsx               # grafico Maturato/Goduto/Saldo (Ferie/ROL)
+    SaldiTrendChart.jsx             # andamento saldi nel tempo (Ferie/ROL)
+    TicketChart.jsx                  # valore buoni pasto mese per mese
 context/
   SettingsContext.jsx            # stato globale: config Supabase, stato sync, layout
+  PayslipsContext.jsx             # stato globale: buste paga caricate, condiviso tra le schermate
 lib/
   supabase.js                    # crea il client Supabase browser (anon key)
   settingsStore.js                # persistenza localStorage (config + preferenze)
-  mapPayslip.js                   # mappa il JSON di Claude sulle colonne della tabella
+  mapPayslip.js                   # mappa il JSON di Gemini sulle colonne della tabella
+  ral.js                           # calcolo RAL reale, RAL ipotetica, lordo medio
+  buoniPasto.js                     # calcolo totale, media e giorni buoni pasto
   useInstallPrompt.js             # hook per il prompt di installazione PWA
   format.js                       # formattazione euro/ore/giorni
 schema.sql                       # script da eseguire su Supabase (RLS per anon key)
 netlify.toml                     # config deploy Netlify
 ```
 
+## 10. Nuove funzionalità: Documenti, Ferie/ROL, RAL, Buoni Pasto
+
+La barra in basso permette di navigare tra 5 schermate:
+
+- **Dashboard**: ultimo netto, netto medio, lordo medio mensile, grafico Netto/Lordo, storico
+- **Ferie/ROL**: saldo combinato Ferie+ROL, saldi singoli, banca ore, grafico Maturato/Goduto/Saldo e andamento nel tempo
+- **RAL**: RAL reale, RAL ipotetica (con breakdown del calcolo) e paga oraria aggiornata
+- **Ticket**: totale buoni pasto percepiti, media mensile, giorni totali, grafico e dettaglio mese per mese
+- **Documenti**: elenco dei PDF/foto originali caricati, apribili tramite link temporaneo sicuro (valido 10 minuti)
+
+### Eliminare una busta paga
+
+Dalla Dashboard, tocca una riga dello storico per aprire il dettaglio: in fondo trovi il pulsante **"Elimina busta paga"**. Richiede una conferma esplicita (per evitare cancellazioni accidentali) e rimuove sia la riga dal database sia il file originale dal bucket Storage — l'operazione non è reversibile.
+
+### Come vengono calcolate RAL reale e RAL ipotetica
+
+- **RAL reale**: somma del lordo totale di tutte le buste caricate nello stesso anno dell'ultima busta. È un consuntivo parziale che cresce man mano che carichi nuove buste, non una proiezione.
+- **RAL ipotetica**: (minimo tabellare + scatti di anzianità + indennità di mansione dell'ultima busta) × 13 mensilità, + il bonus produzione già documentato nell'anno (somma delle tranche presenti nelle buste caricate — se manca una tranche, il totale è provvisorio). L'indennità mensa/ticket è volutamente esclusa, perché per prassi non fa parte della RAL contrattuale.
+
+Se la tua situazione contrattuale prevede regole diverse (altre voci da includere/escludere), la formula si trova in un unico punto del codice: `lib/ral.js`.
+
+### Aggiornamento del database (solo se hai già eseguito schema.sql in passato)
+
+Questa versione aggiunge una colonna `file_type` alla tabella (per riconoscere PDF vs foto nella schermata Documenti) e i permessi per poter eliminare le buste paga. Se il tuo progetto Supabase esiste già:
+1. Vai su **SQL Editor > New query**
+2. Incolla ed esegui solo il blocco "AGGIORNAMENTO SCHEMA" che trovi in fondo a `schema.sql` (non serve rieseguire tutto lo script)
+
+## 11. Filtro per anno
+
+In alto a destra, su ogni schermata, trovi un menu a tendina con gli anni disponibili (più l'opzione "Tutti gli anni"). Selezionando un anno, **tutta l'app si aggiorna di conseguenza**: Dashboard, Ferie/ROL, RAL, Ticket e Documenti mostrano solo i dati di quell'anno — utile per separare in automatico le buste 2026 da quelle 2027 e successive. La scelta viene ricordata sul dispositivo tra una sessione e l'altra. Caricando una nuova busta di un anno diverso da quello selezionato, l'app passa automaticamente su quell'anno per mostrartela subito.
+
 ## Note
 
-- Il modello usato per l'estrazione è `gemini-2.5-flash`; per cambiarlo modifica
+- Il modello usato per l'estrazione è `gemini-3.6-flash`; per cambiarlo modifica
   la costante `GEMINI_MODEL` in `app/api/parse-payslip/route.js` (ad es. per
   passare a un modello Gemini più recente quando disponibile).
 - Se in futuro preferisci tornare a Claude (Anthropic) — niente uso dei tuoi

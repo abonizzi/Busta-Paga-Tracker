@@ -14,6 +14,7 @@ export const maxDuration = 60;
 // meno dipendenze da mantenere aggiornate nel tempo.
 
 const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const SYSTEM_PROMPT = `Sei un motore di estrazione dati altamente accurato specializzato in buste paga italiane (CCNL Metalmeccanica Industria). Estrai tutti i dati contrattuali, orari, saldi ratei (ferie, ROL, flessibilità), TFR e progressivi fiscali dal documento ed emetti ESCLUSIVAMENTE un JSON valido senza markdown o testo introduttivo, seguendo esattamente questo schema (usa null per i valori non presenti nel documento, non inventare mai numeri):

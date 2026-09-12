@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import BottomNav from "@/components/BottomNav";
 
 // Carichiamo Inter una sola volta a livello di build e lo esponiamo come
 // variabile CSS: così il font è IDENTICO su telefono e computer, invece di
@@ -41,7 +42,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="it" className={`dark ${inter.variable}`}>
       <body className="bg-base-950 text-slate-100 antialiased min-h-screen font-sans">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <BottomNav />
+        </Providers>
       </body>
     </html>
   );

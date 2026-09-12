@@ -17,6 +17,7 @@ create table if not exists public.payslips (
   -- Riferimento al file originale in Storage
   file_path text,
   file_name text,
+  file_type text,
 
   -- Periodo
   mese integer,
@@ -114,6 +115,11 @@ create policy "Accesso anon in scrittura"
   for insert
   with check (true);
 
+create policy "Accesso anon in cancellazione"
+  on public.payslips
+  for delete
+  using (true);
+
 -- ------------------------------------------------------------
 -- Storage: bucket privato per i file originali (PDF/immagini)
 -- ------------------------------------------------------------
@@ -135,7 +141,35 @@ create policy "Lettura anon bucket payslips"
   for select
   using (bucket_id = 'payslips');
 
+create policy "Cancellazione anon bucket payslips"
+  on storage.objects
+  for delete
+  using (bucket_id = 'payslips');
+
 -- Nota: upload e lettura avvengono ora direttamente dal browser con la
 -- ANON KEY inserita nelle Impostazioni dell'app (o nelle variabili
 -- d'ambiente NEXT_PUBLIC_* se preferisci un deploy mono-utente senza
 -- passare da Impostazioni).
+
+-- ============================================================
+-- AGGIORNAMENTO SCHEMA (solo se hai già eseguito una versione precedente
+-- di questo file su un progetto Supabase esistente)
+--
+-- Se il tuo progetto Supabase esiste già e contiene buste paga salvate,
+-- NON serve rieseguire tutto lo script sopra: basta lanciare queste righe,
+-- che aggiungono la colonna "file_type" e i permessi di cancellazione
+-- senza toccare i dati già presenti (non fanno nulla se già esistono).
+-- ============================================================
+alter table public.payslips add column if not exists file_type text;
+
+drop policy if exists "Accesso anon in cancellazione" on public.payslips;
+create policy "Accesso anon in cancellazione"
+  on public.payslips
+  for delete
+  using (true);
+
+drop policy if exists "Cancellazione anon bucket payslips" on storage.objects;
+create policy "Cancellazione anon bucket payslips"
+  on storage.objects
+  for delete
+  using (bucket_id = 'payslips');

@@ -1,6 +1,7 @@
 "use client";
 
-import { X, Gift } from "lucide-react";
+import { useState } from "react";
+import { X, Gift, Trash2, Loader2 } from "lucide-react";
 import {
   periodoLabel,
   formatEuro,
@@ -8,29 +9,29 @@ import {
   formatGiorni,
   estraiPremiProduzione,
 } from "@/lib/format";
-
-function Section({ title, children }) {
-  return (
-    <div className="mb-4">
-      <h4 className="text-xs uppercase tracking-wide text-slate-500 mb-2">{title}</h4>
-      <div className="rounded-xl border border-base-700 bg-base-850 divide-y divide-base-700">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div className="flex items-center justify-between px-3 py-2 text-sm">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
-}
+import { Section, Row } from "@/components/InfoSection";
+import { usePayslips } from "@/context/PayslipsContext";
 
 export default function DetailModal({ payslip, onClose }) {
+  const { deletePayslip } = usePayslips();
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   if (!payslip) return null;
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    const result = await deletePayslip(payslip);
+    setDeleting(false);
+    if (result.ok) {
+      onClose();
+    } else {
+      setDeleteError(result.error);
+      setConfirming(false);
+    }
+  }
 
   const premi = estraiPremiProduzione(payslip.voci_variabili);
   const altreVoci = (payslip.voci_variabili || []).filter(
@@ -144,6 +145,45 @@ export default function DetailModal({ payslip, onClose }) {
           <Row label="Retribuzione utile TFR" value={formatEuro(payslip.retribuzione_utile_tfr)} />
           <Row label="TFR trasferito a fondo" value={formatEuro(payslip.tfr_trasferito_fondo)} />
         </Section>
+
+        {deleteError && (
+          <div className="rounded-xl border border-bad/30 bg-bad/10 text-bad text-sm p-3 mb-3">
+            {deleteError}
+          </div>
+        )}
+
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-bad/30 text-bad py-2.5 font-medium active:bg-bad/10"
+          >
+            <Trash2 className="h-4 w-4" />
+            Elimina busta paga
+          </button>
+        ) : (
+          <div className="rounded-xl border border-bad/30 bg-bad/10 p-3 flex flex-col gap-2">
+            <p className="text-sm text-bad">
+              Eliminare definitivamente questa busta paga e il file originale? Non si può annullare.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-bad text-white py-2 font-medium disabled:opacity-60"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Conferma eliminazione
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={deleting}
+                className="rounded-xl border border-base-700 px-4 py-2 text-sm text-slate-300"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

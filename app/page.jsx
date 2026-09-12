@@ -1,114 +1,38 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { ReceiptText, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { Wallet, TrendingUp, Coins, ReceiptText } from "lucide-react";
 import UploadCard from "@/components/UploadCard";
-import KpiCards from "@/components/KpiCards";
-import HistoryCharts from "@/components/HistoryCharts";
+import StatCard from "@/components/StatCard";
+import NettoLordoChart from "@/components/charts/NettoLordoChart";
 import HistoryTable from "@/components/HistoryTable";
 import DetailModal from "@/components/DetailModal";
-import ConnectionBadge from "@/components/ConnectionBadge";
+import AppHeader from "@/components/AppHeader";
+import EmptyYearState from "@/components/EmptyYearState";
+import Link from "next/link";
+import { useState } from "react";
 import { useSettings } from "@/context/SettingsContext";
-
-// Classi Tailwind scelte in base alla preferenza di layout impostata in
-// Impostazioni: "auto" segue il viewport reale (mobile-first + breakpoint
-// md/lg), "mobile"/"desktop" forzano la larghezza indipendentemente dallo
-// schermo, utile ad es. per chi vuole sempre la vista compatta anche su un
-// monitor grande, o viceversa.
-function useLayoutClasses(layoutPref) {
-  if (layoutPref === "mobile") {
-    return {
-      container: "max-w-md",
-      kpiGrid: "grid-cols-2",
-      chartsGrid: "grid-cols-1",
-    };
-  }
-  if (layoutPref === "desktop") {
-    return {
-      container: "max-w-6xl",
-      kpiGrid: "grid-cols-5",
-      chartsGrid: "grid-cols-2",
-    };
-  }
-  // auto
-  return {
-    container: "max-w-md sm:max-w-2xl lg:max-w-6xl",
-    kpiGrid: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
-    chartsGrid: "grid-cols-1 lg:grid-cols-2",
-  };
-}
+import { usePayslips } from "@/context/PayslipsContext";
+import { formatEuro } from "@/lib/format";
+import { calcLordoMedioMensile } from "@/lib/ral";
 
 export default function Page() {
-  const { client, status, layoutPref } = useSettings();
-  const [payslips, setPayslips] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { client, status } = useSettings();
+  const { payslips, allPayslips, selectedYear, loading } = usePayslips();
   const [selected, setSelected] = useState(null);
-  const layout = useLayoutClasses(layoutPref);
   const connected = status === "connected";
 
-  const loadPayslips = useCallback(async () => {
-    if (!client) {
-      setPayslips([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await client
-        .from("payslips")
-        .select("*")
-        .order("anno", { ascending: true })
-        .order("mese", { ascending: true });
-
-      if (!error) setPayslips(data || []);
-    } catch (err) {
-      console.error("Errore nel caricamento delle buste paga:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [client]);
-
-  useEffect(() => {
-    loadPayslips();
-  }, [loadPayslips]);
-
-  function handleUploaded(nuova) {
-    setPayslips((prev) => [...prev, nuova]);
-  }
+  const ultima = payslips[payslips.length - 1];
+  const nettoMedio =
+    payslips.length > 0
+      ? payslips.reduce((sum, p) => sum + (p.netto_in_busta || 0), 0) / payslips.length
+      : null;
+  const lordoMedio = calcLordoMedioMensile(payslips);
 
   return (
-    <main className={`${layout.container} mx-auto px-4 pb-24 pt-6 flex flex-col gap-5 transition-all`}>
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-accent/10 flex items-center justify-center">
-            <ReceiptText className="h-5 w-5 text-accent" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">Buste Paga</h1>
-            <p className="text-xs text-slate-500 leading-tight">Dashboard personale</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ConnectionBadge />
-          <button
-            onClick={loadPayslips}
-            className="p-2 rounded-full border border-base-700 active:bg-base-800"
-            aria-label="Aggiorna"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-          <Link
-            href="/settings"
-            className="p-2 rounded-full border border-base-700 active:bg-base-800"
-            aria-label="Impostazioni"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </Link>
-        </div>
-      </header>
+    <main className="max-w-md sm:max-w-2xl lg:max-w-6xl mx-auto px-4 pb-28 pt-6 flex flex-col gap-5">
+      <AppHeader icon={ReceiptText} title="Buste Paga" subtitle="Dashboard personale" />
 
-      <UploadCard client={client} connected={connected} onUploaded={handleUploaded} />
+      <UploadCard client={client} connected={connected} />
 
       {!connected && payslips.length === 0 && !loading ? (
         <div className="rounded-2xl border border-dashed border-base-700 p-8 text-center flex flex-col items-center gap-2">
@@ -124,11 +48,34 @@ export default function Page() {
         </div>
       ) : loading && payslips.length === 0 ? (
         <div className="text-center text-sm text-slate-500 py-8">Caricamento storico…</div>
+      ) : payslips.length === 0 ? (
+        <EmptyYearState hasAnyData={allPayslips.length > 0} selectedYear={selectedYear} />
       ) : (
         <>
-          <KpiCards payslips={payslips} gridClassName={`${layout.kpiGrid} gap-3`} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <StatCard
+              icon={Wallet}
+              label="Ultimo netto"
+              value={formatEuro(ultima.netto_in_busta)}
+              sub={ultima.mese && ultima.anno ? `${ultima.mese}/${ultima.anno}` : null}
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="Netto medio"
+              value={formatEuro(nettoMedio)}
+              sub={`su ${payslips.length} bust${payslips.length === 1 ? "a" : "e"}`}
+              accent="text-good"
+            />
+            <StatCard
+              icon={Coins}
+              label="Lordo medio mensile"
+              value={formatEuro(lordoMedio)}
+              sub="bonus inclusi"
+              accent="text-accent-soft"
+            />
+          </div>
 
-          <HistoryCharts payslips={payslips} gridClassName={`${layout.chartsGrid} gap-4`} />
+          <NettoLordoChart payslips={payslips} />
 
           <section>
             <h2 className="text-sm font-medium text-slate-300 mb-2 px-1">Storico buste paga</h2>
