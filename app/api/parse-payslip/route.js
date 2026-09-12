@@ -13,7 +13,6 @@ export const maxDuration = 60;
 // Usiamo l'API REST di Gemini con una semplice fetch, senza SDK aggiuntivi:
 // meno dipendenze da mantenere aggiornate nel tempo.
 
-const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
