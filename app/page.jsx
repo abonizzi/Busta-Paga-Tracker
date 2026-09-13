@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useSettings } from "@/context/SettingsContext";
 import { usePayslips } from "@/context/PayslipsContext";
 import { formatEuro } from "@/lib/format";
-import { calcLordoMedioMensile } from "@/lib/ral";
+import { calcLordoMedioMensile, getLatestPayslip } from "@/lib/ral";
 
 export default function Page() {
   const { client, status } = useSettings();
@@ -21,7 +21,7 @@ export default function Page() {
   const [selected, setSelected] = useState(null);
   const connected = status === "connected";
 
-  const ultima = payslips[payslips.length - 1];
+  const ultima = getLatestPayslip(payslips);
   const nettoMedio =
     payslips.length > 0
       ? payslips.reduce((sum, p) => sum + (p.netto_in_busta || 0), 0) / payslips.length

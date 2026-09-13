@@ -64,7 +64,14 @@ Ti serviranno per collegare l'app dalla schermata Impostazioni (vedi punto 5).
    > minimo per questo volume di utilizzo) oppure valuta l'alternativa con
    > Claude (Anthropic), che su API a pagamento non addestra mai sui tuoi dati.
 
-## 3. Sviluppo locale
+## 3. Chiave API Resend (per le Segnalazioni, gratuita)
+
+1. Vai su [resend.com](https://resend.com) e crea un account gratuito.
+2. Nel pannello, vai su **API Keys** → **Create API Key**, copiala.
+3. Serve per il pulsante "Invia segnalazione" nelle Impostazioni: senza questa chiave, quel form non funziona (il resto dell'app funziona comunque normalmente).
+4. Le email vengono inviate usando il mittente di test `onboarding@resend.dev`, che non richiede di verificare un dominio proprio. Se in futuro le segnalazioni finiscono in spam o smettono di arrivare, valuta di verificare un tuo dominio su Resend.
+
+## 4. Sviluppo locale
 
 ```bash
 npm install
@@ -76,7 +83,7 @@ Apri `http://localhost:3000`, vai su Impostazioni e collega Supabase inserendo
 URL e anon key. (Per testare la fotocamera da telefono in locale serve HTTPS:
 usa il deploy su Netlify oppure un tunnel come `ngrok`.)
 
-## 4. Deploy gratuito su Netlify
+## 5. Deploy gratuito su Netlify
 
 ### Opzione A — da GitHub (consigliata, niente terminale)
 1. Crea un repository su GitHub e carica tutti i file del progetto (anche via
@@ -88,12 +95,13 @@ usa il deploy su Netlify oppure un tunnel come `ngrok`.)
    | Variabile | Obbligatoria? | Valore |
    |---|---|---|
    | `GEMINI_API_KEY` | Sì | la tua chiave Google Gemini |
+   | `RESEND_API_KEY` | Solo per le Segnalazioni | la tua chiave Resend |
    | `NEXT_PUBLIC_SUPABASE_URL` | No (opzionale) | URL Supabase, se vuoi che sia già collegato al primo avvio |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No (opzionale) | anon key, come sopra |
 
    Se salti le due variabili opzionali, potrai comunque collegare Supabase in
    qualunque momento dalla pagina Impostazioni dell'app.
-4. Avvia il deploy. L'endpoint `/api/parse-payslip` viene pubblicato
+4. Avvia il deploy. Gli endpoint `/api/parse-payslip` e `/api/send-feedback` vengono pubblicati
    automaticamente come Netlify Function.
 
 ### Opzione B — da CLI (richiede Node.js in locale)
@@ -102,10 +110,11 @@ npm install -g netlify-cli
 netlify login
 netlify init
 netlify env:set GEMINI_API_KEY xxxxxxxx...
+netlify env:set RESEND_API_KEY re_xxxxxxxx...
 netlify deploy --prod
 ```
 
-## 5. Collegare Supabase dall'app (multi-dispositivo)
+## 6. Collegare Supabase dall'app (multi-dispositivo)
 
 Su ogni dispositivo dove vuoi usare l'app:
 1. Apri l'app → icona ingranaggio (Impostazioni).
@@ -116,7 +125,7 @@ Su ogni dispositivo dove vuoi usare l'app:
 4. Ripeti su ogni altro dispositivo con le stesse identiche chiavi: vedranno
    tutti gli stessi dati.
 
-## 6. Installare l'app come web app (PWA)
+## 7. Installare l'app come web app (PWA)
 
 Dalla pagina Impostazioni, sezione "Installazione", trovi un pulsante
 "Installa l'app su questo dispositivo":
@@ -126,7 +135,7 @@ Dalla pagina Impostazioni, sezione "Installazione", trovi un pulsante
 
 Una volta installata, l'app si comporta come nativa (icona, schermo intero, nessuna barra del browser).
 
-## 7. Aspetto: mobile, desktop o automatico
+## 8. Aspetto: mobile, desktop o automatico
 
 Sempre in Impostazioni, sezione "Aspetto", puoi scegliere:
 - **Automatico** (default): la dashboard si adatta allo schermo (compatta su telefono, estesa su computer).
@@ -135,7 +144,7 @@ Sempre in Impostazioni, sezione "Aspetto", puoi scegliere:
 
 La preferenza è salvata sul singolo dispositivo (non sincronizzata via Supabase).
 
-## 8. Icone PWA
+## 9. Icone PWA
 
 Il `manifest.json` referenzia `/public/icons/icon-192.png`, `icon-512.png` e
 `icon-maskable-512.png`. Genera queste tre icone (logo a tua scelta) con un
@@ -144,7 +153,7 @@ tool come [realfavicongenerator.net](https://realfavicongenerator.net) o
 prima del deploy: senza queste immagini l'app funziona comunque, ma l'icona
 sulla schermata Home userà un placeholder del browser.
 
-## 9. Come funziona l'estrazione dati
+## 10. Come funziona l'estrazione dati
 
 1. Selezioni un PDF o una foto della busta paga dal telefono (o computer).
 2. Il file viene convertito in Base64 e inviato a `/api/parse-payslip`
@@ -200,7 +209,7 @@ schema.sql                       # script da eseguire su Supabase (RLS per anon 
 netlify.toml                     # config deploy Netlify
 ```
 
-## 10. Nuove funzionalità: Documenti, Ferie/ROL, RAL, Buoni Pasto
+## 11. Nuove funzionalità: Documenti, Ferie/ROL, RAL, Buoni Pasto
 
 La barra in basso permette di navigare tra 5 schermate:
 
@@ -227,9 +236,16 @@ Questa versione aggiunge una colonna `file_type` alla tabella (per riconoscere P
 1. Vai su **SQL Editor > New query**
 2. Incolla ed esegui solo il blocco "AGGIORNAMENTO SCHEMA" che trovi in fondo a `schema.sql` (non serve rieseguire tutto lo script)
 
-## 11. Filtro per anno
+## 12. Filtro per anno
 
 In alto a destra, su ogni schermata, trovi un menu a tendina con gli anni disponibili (più l'opzione "Tutti gli anni"). Selezionando un anno, **tutta l'app si aggiorna di conseguenza**: Dashboard, Ferie/ROL, RAL, Ticket e Documenti mostrano solo i dati di quell'anno — utile per separare in automatico le buste 2026 da quelle 2027 e successive. La scelta viene ricordata sul dispositivo tra una sessione e l'altra. Caricando una nuova busta di un anno diverso da quello selezionato, l'app passa automaticamente su quell'anno per mostrartela subito.
+
+## 13. Caricamento multiplo, Segnalazioni, mensilità RAL, proiezione Ferie/ROL
+
+- **Caricamento multiplo**: nella Dashboard puoi selezionare più PDF (o più foto) insieme; l'app li elabora uno alla volta mostrando una barra di avanzamento ("Elaborazione 2 di 5…").
+- **Segnalazioni**: dalle Impostazioni puoi scrivere un suggerimento o segnalare un problema, inviato via email a chi gestisce l'app (richiede `RESEND_API_KEY`, vedi punto 3).
+- **Mensilità RAL**: dalle Impostazioni scegli se la RAL ipotetica va calcolata su 12, 13 o 14 mensilità. Con 14 selezionate, la quattordicesima è considerata uguale alla mensilità base.
+- **Proiezione Ferie/ROL a fine anno**: nella pagina Ferie/ROL, un riquadro dedicato stima il saldo al 31 dicembre, assumendo che la maturazione mensile resti quella dell'ultima busta caricata e che non vengano prese ulteriori ferie/ROL da qui a fine anno.
 
 ## Note
 

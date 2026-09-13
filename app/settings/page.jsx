@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import InstallAppButton from "@/components/InstallAppButton";
+import FeedbackForm from "@/components/FeedbackForm";
+import { getStoredMensilita, saveStoredMensilita } from "@/lib/settingsStore";
 
 const STATUS_META = {
   checking: { icon: RefreshCw, className: "text-slate-300 bg-base-850 border-base-700", spin: true },
@@ -149,6 +151,41 @@ function LayoutPrefSelector() {
   );
 }
 
+function MensilitaSelector() {
+  const [mensilita, setMensilita] = useState(13);
+
+  useEffect(() => {
+    setMensilita(getStoredMensilita());
+  }, []);
+
+  function choose(n) {
+    setMensilita(n);
+    saveStoredMensilita(n);
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {[12, 13, 14].map((n) => {
+        const active = mensilita === n;
+        return (
+          <button
+            key={n}
+            onClick={() => choose(n)}
+            className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
+              active
+                ? "border-accent bg-accent/10 text-accent-soft"
+                : "border-base-700 bg-base-850 text-slate-400"
+            }`}
+          >
+            <span className="font-semibold text-base">{n}</span>
+            <span>mensilità</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function Section({ title, description, children }) {
   return (
     <section className="flex flex-col gap-3">
@@ -189,10 +226,24 @@ export default function SettingsPage() {
       </Section>
 
       <Section
+        title="Calcolo RAL"
+        description="Numero di mensilità usate nella proiezione della RAL ipotetica (pagina RAL). La quattordicesima, se scelta, viene calcolata come uguale alla mensilità base."
+      >
+        <MensilitaSelector />
+      </Section>
+
+      <Section
         title="Installazione"
         description="Installa l'app sulla schermata Home per usarla come un'app nativa, senza barra del browser."
       >
         <InstallAppButton />
+      </Section>
+
+      <Section
+        title="Segnalazioni e suggerimenti"
+        description="Hai trovato un problema o hai un'idea per migliorare l'app? Scrivicelo qui sotto."
+      >
+        <FeedbackForm />
       </Section>
     </main>
   );

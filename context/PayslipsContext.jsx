@@ -71,7 +71,13 @@ export function PayslipsProvider({ children }) {
   }, [allPayslips, selectedYear]);
 
   function addPayslip(nuova) {
-    setAllPayslips((prev) => [...prev, nuova]);
+    // Riordina sempre per anno/mese dopo l'inserimento: senza questo, una
+    // busta caricata "fuori ordine" (es. di un mese passato, dopo averne
+    // già caricate di più recenti) finirebbe in fondo alla lista e
+    // sfalserebbe grafici e KPI che si aspettano l'ordine cronologico.
+    setAllPayslips((prev) =>
+      [...prev, nuova].sort((a, b) => (a.anno - b.anno) || (a.mese - b.mese))
+    );
     // Se la nuova busta è di un anno diverso da quello selezionato, passa
     // automaticamente a quell'anno così la vedi subito.
     if (nuova?.anno && selectedYear !== "all" && nuova.anno !== selectedYear) {
